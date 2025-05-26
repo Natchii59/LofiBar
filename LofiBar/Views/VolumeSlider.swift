@@ -10,6 +10,7 @@ import SwiftUI
 struct VolumeSlider: View {
   let label: String
   var icon: String? = nil
+  @State private var tempValue: Float = 0
   @Binding var value: Float
 
   var body: some View {
@@ -20,7 +21,17 @@ struct VolumeSlider: View {
       }
       Text(label)
         .frame(minWidth: 50, alignment: .leading)
-      Slider(value: $value, in: 0...1)
+      Slider(
+        value: $tempValue,
+        in: 0...1,
+        onEditingChanged: { editing in
+          if !editing {
+            value = tempValue
+          }
+        }
+      ).onAppear {
+        tempValue = value
+      }
     }
   }
 }

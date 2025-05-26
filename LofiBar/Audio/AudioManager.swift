@@ -9,8 +9,16 @@ import AVFoundation
 import Cocoa
 
 /// Manages background music and ambient sounds for a menu bar macOS application.
+///
+/// Use this singleton (`AudioManager.shared`) to control all audio behaviors, including music playback,
+/// ambient sounds, system sleep/wake handling, and synchronized volume control.
+///
+/// Designed as an `ObservableObject` for SwiftUI integration.
 final class AudioManager: NSObject, ObservableObject {
+  /// The shared singleton instance of AudioManager.
   static let shared = AudioManager()
+
+  // MARK: - Private Properties
 
   /// The audio player for the current music track.
   private var musicPlayer: AVAudioPlayer?
@@ -21,45 +29,54 @@ final class AudioManager: NSObject, ObservableObject {
 
   // MARK: - Published Properties
 
+  /// The currently selected music category. Changes trigger new music playback.
   @Published var selectedMusicCategory: MusicCategory = .chill {
     didSet { playMusic(for: selectedMusicCategory) }
   }
+  /// Indicates whether audio playback is active.
   @Published var isPlaying: Bool = false {
-    didSet { updateAllPlaybackState() }
+    didSet { updatePlaybackState() }
   }
+  /// The master volume for all audio (range 0.0...1.0).
   @Published var masterVolume: Float = 1.0 {
-    didSet { updateAllVolumes() }
+    didSet { setMasterVolume(masterVolume) }
   }
+  /// The volume for music tracks only (range 0.0...1.0).
   @Published var musicVolume: Float = 0.5 {
-    didSet { updateMusicVolumes() }
+    didSet { setMusicVolume(musicVolume) }
   }
+  /// The volume for each ambient sound, keyed by sound type (range 0.0...1.0).
   @Published var ambientVolumes: [AmbientSound: Float] = [:] {
-    didSet { updateAmbientVolumes() }
+    didSet {
+      updateChangedAmbientVolumes(oldValue: oldValue, newValue: ambientVolumes)
+    }
   }
 
   // MARK: - Computed Properties
 
+  /// Returns true if music can be played according to playback state and volume settings.
   private var canPlayMusic: Bool {
     isPlaying && masterVolume > 0 && musicVolume > 0
   }
 
   // MARK: - Initialization
 
+  /// Initializes the singleton instance, observes system sleep/wake, preloads audio, and starts playback.
   private override init() {
     super.init()
     observeSystemSleep()
     setupAmbientPlayers()
     playMusic(for: selectedMusicCategory)
-    updateAllPlaybackState()
+    updatePlaybackState()
   }
 
   deinit {
     NSWorkspace.shared.notificationCenter.removeObserver(self)
   }
 
-  // MARK: - System Sleep
+  // MARK: - System Sleep / Wake Management
 
-  /// Observes system sleep and wake notifications to manage audio resources.
+  /// Observes system sleep and wake notifications to manage audio resources appropriately.
   private func observeSystemSleep() {
     let center = NSWorkspace.shared.notificationCenter
     center.addObserver(
@@ -76,17 +93,19 @@ final class AudioManager: NSObject, ObservableObject {
     )
   }
 
-  /// Stops and releases all audio players before sleep.
+  /// Handles system sleep: stops and releases all audio resources.
+  /// - Parameter note: The notification received before system sleep.
   @objc private func handleSleepNote(_ note: Notification) {
     stopAllAndRelease()
     isPlaying = false
   }
 
-  /// Re-initializes audio players after wake.
+  /// Handles system wake: reloads audio players and resumes playback states.
+  /// - Parameter note: The notification received after system wake.
   @objc private func handleWakeNote(_ note: Notification) {
     setupAmbientPlayers()
     playMusic(for: selectedMusicCategory)
-    updateAllPlaybackState()
+    updatePlaybackState()
   }
 
   /// Stops and releases all music and ambient players.
@@ -115,7 +134,9 @@ final class AudioManager: NSObject, ObservableObject {
         player.volume = 0
         player.prepareToPlay()
         ambientPlayers[sound] = player
-        ambientVolumes[sound] = 0
+        if ambientVolumes[sound] == nil {
+          ambientVolumes[sound] = 0
+        }
       } catch {
         print("Failed to load ambient sound: \(sound)", error)
       }
@@ -124,13 +145,14 @@ final class AudioManager: NSObject, ObservableObject {
 
   // MARK: - Music Playback
 
-  /// Loads and plays the first track of the specified music category.
+  /// Loads and plays the first track of the given music category.
+  /// - Parameter category: The music category to play.
   private func playMusic(for category: MusicCategory) {
     currentMusicIndex = 0
     playCurrentMusicTrack()
   }
 
-  /// Plays the current music track based on the currentMusicIndex.
+  /// Plays the current music track based on `currentMusicIndex`.
   private func playCurrentMusicTrack() {
     stopMusic()
 
@@ -169,18 +191,38 @@ final class AudioManager: NSObject, ObservableObject {
     musicPlayer = nil
   }
 
-  // MARK: - Ambient Sound Management
+  // MARK: - Selective Ambient Sound Management
 
-  /// Updates the volume and play/pause state of all ambient players according to their current volume and global state.
-  private func updateAmbientVolumes() {
-    for (sound, player) in ambientPlayers {
-      let volume = (ambientVolumes[sound] ?? 0) * masterVolume
-      player.volume = volume
-      if volume > 0 && isPlaying && !player.isPlaying {
+  /// Updates only ambient players whose volume actually changed.
+  /// - Parameters:
+  ///   - oldValue: The previous ambient volumes.
+  ///   - newValue: The current ambient volumes.
+  private func updateChangedAmbientVolumes(
+    oldValue: [AmbientSound: Float],
+    newValue: [AmbientSound: Float]
+  ) {
+    for (sound, newVolume) in newValue {
+      let oldVolume = oldValue[sound] ?? 0
+      if newVolume != oldVolume {
+        setAmbientVolume(for: sound, volume: newVolume)
+      }
+    }
+  }
+
+  /// Sets the volume and playback state for a specific ambient sound.
+  /// - Parameters:
+  ///   - sound: The ambient sound type.
+  ///   - volume: The new volume for that sound (0.0...1.0).
+  private func setAmbientVolume(for sound: AmbientSound, volume: Float) {
+    guard let player = ambientPlayers[sound] else { return }
+    let effectiveVolume = volume * masterVolume
+    player.volume = effectiveVolume
+    if effectiveVolume > 0 && isPlaying {
+      if !player.isPlaying {
         player.play()
-      } else if (volume == 0 || !isPlaying || masterVolume == 0)
-        && player.isPlaying
-      {
+      }
+    } else {
+      if player.isPlaying {
         player.pause()
       }
     }
@@ -188,27 +230,33 @@ final class AudioManager: NSObject, ObservableObject {
 
   // MARK: - Volume & Playback State Updates
 
-  /// Updates the volume for all audio outputs (music and ambient sounds) based on current property values.
-  private func updateAllVolumes() {
-    updateMusicVolumes()
-    updateAmbientVolumes()
-    updateAllPlaybackState()
+  /// Updates all volumes for master volume changes.
+  /// - Parameter newMasterVolume: The new master volume (0.0...1.0).
+  private func setMasterVolume(_ newMasterVolume: Float) {
+    setMusicVolume(musicVolume)
+    for sound in AmbientSound.allCases {
+      setAmbientVolume(for: sound, volume: ambientVolumes[sound] ?? 0)
+    }
   }
 
-  /// Updates the volume for the music player and ensures playback is consistent.
-  private func updateMusicVolumes() {
-    let effectiveMusicVolume = musicVolume * masterVolume
+  /// Updates only the music volume (does not affect ambients).
+  /// - Parameter newMusicVolume: The new music volume (0.0...1.0).
+  private func setMusicVolume(_ newMusicVolume: Float) {
+    let effectiveMusicVolume = newMusicVolume * masterVolume
     musicPlayer?.volume = effectiveMusicVolume
     updateMusicPlaybackState()
   }
 
-  /// Pauses or resumes all music and ambient players based on master volume, music volume, and isPlaying state.
-  private func updateAllPlaybackState() {
-    if masterVolume == 0 || !isPlaying {
+  /// Updates playback state for all players when play/pause changes.
+  private func updatePlaybackState() {
+    if !isPlaying || masterVolume == 0 {
       pauseAll()
     } else {
       updateMusicPlaybackState()
-      updateAmbientVolumes()
+      // Resume only ambient sounds whose volume > 0
+      for sound in AmbientSound.allCases {
+        setAmbientVolume(for: sound, volume: ambientVolumes[sound] ?? 0)
+      }
     }
   }
 
@@ -239,14 +287,18 @@ final class AudioManager: NSObject, ObservableObject {
 
   /// Resumes playback of all music and ambient sounds (if their volume is greater than 0).
   private func resumeAll() {
-    updateAllPlaybackState()
+    updatePlaybackState()
   }
 }
 
 // MARK: - AVAudioPlayerDelegate
 
 extension AudioManager: AVAudioPlayerDelegate {
-  /// Called when the current music track finishes playing. Advances to the next track, looping if needed.
+  /// Called when the current music track finishes playing. Advances to the next track and loops if needed.
+  ///
+  /// - Parameters:
+  ///   - player: The audio player that finished playback.
+  ///   - flag: Indicates whether playback finished successfully.
   func audioPlayerDidFinishPlaying(
     _ player: AVAudioPlayer,
     successfully flag: Bool
