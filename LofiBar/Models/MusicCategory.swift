@@ -33,5 +33,5 @@ enum MusicCategory: String, CaseIterable, Identifiable {
     }
   }
   
-  static let resourceSubdirectory = "Resources/Sounds/Music"
+  static let resourceSubdirectory = "Sounds/Music"
 }

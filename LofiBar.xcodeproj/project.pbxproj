@@ -18,9 +18,6 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		205BB4F92DE078D9007862AD /* LofiBar */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFolders = (
-				Resources,
-			);
 			path = LofiBar;
 			sourceTree = "<group>";
 		};

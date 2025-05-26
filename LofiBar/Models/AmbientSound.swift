@@ -30,5 +30,5 @@ enum AmbientSound: String, CaseIterable, Identifiable {
     }
   }
 
-  static let resourceSubdirectory = "Resources/Sounds/Ambient"
+  static let resourceSubdirectory = "Sounds/Ambient"
 }

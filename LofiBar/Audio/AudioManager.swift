@@ -122,7 +122,7 @@ final class AudioManager: NSObject, ObservableObject {
   private func setupAmbientPlayers() {
     for sound in AmbientSound.allCases {
       guard
-        let url = Bundle.main.url(
+        let url = ResourceManager.shared.url(
           forResource: sound.rawValue,
           withExtension: "mp3",
           subdirectory: AmbientSound.resourceSubdirectory
@@ -162,7 +162,7 @@ final class AudioManager: NSObject, ObservableObject {
     }
     let fileName = fileNames[currentMusicIndex]
     guard
-      let url = Bundle.main.url(
+      let url = ResourceManager.shared.url(
         forResource: fileName,
         withExtension: "mp3",
         subdirectory: MusicCategory.resourceSubdirectory
