@@ -23,7 +23,10 @@ class MainMenu: NSObject {
     let contentView = NSHostingController(rootView: content)
 
     // Setting a size for our now playing view
-    contentView.view.frame.size = CGSize(width: 200, height: 80)
+    contentView.view.layoutSubtreeIfNeeded()
+    let fittingSize = contentView.view.fittingSize
+    
+    contentView.view.frame.size = CGSize(width: 300, height: fittingSize.height)
 
     // This is where we actually add our now playing view to the menu
     let customMenuItem = NSMenuItem()

@@ -6,13 +6,21 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		205E6CFF2DE453EE000A3638 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 205E6CFE2DE453E7000A3638 /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		205BB4F72DE078D9007862AD /* LofiBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LofiBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		205E6CFE2DE453E7000A3638 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		205BB4F92DE078D9007862AD /* LofiBar */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFolders = (
+				Resources,
+			);
 			path = LofiBar;
 			sourceTree = "<group>";
 		};
@@ -34,6 +42,7 @@
 			children = (
 				205BB4F92DE078D9007862AD /* LofiBar */,
 				205BB4F82DE078D9007862AD /* Products */,
+				205E6CFE2DE453E7000A3638 /* .gitignore */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -111,6 +120,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				205E6CFF2DE453EE000A3638 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
